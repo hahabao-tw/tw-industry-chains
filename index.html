@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台灣產業價值鏈 · 關係網路圖</title>
+<style>
+:root{
+  --bg:#070b18; --panel:#0e1526; --panel-border:#1e2a45; --card:#141d33;
+  --text:#dbe4f5; --text-dim:#7d8cab;
+  --tw-gold:#f5c542; --tw-otc:#ffa94d; --tw-emg:#ff7e67; --foreign:#8fa3bf;
+  --hub:#5fd4e0; --cat:#9d8cff; --subcat:#6f6bc4; --accent:#5fd4e0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);
+  font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif;display:flex;}
+#stage{flex:1;position:relative;min-width:0;}
+canvas{display:block;width:100%;height:100%;cursor:grab;}
+canvas.dragging{cursor:grabbing;}
+
+#topbar{position:absolute;top:14px;left:16px;right:16px;
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;pointer-events:none;}
+#topbar > *{pointer-events:auto;}
+#title{font-size:15px;font-weight:700;letter-spacing:1px;padding:8px 14px;
+  border:1px solid var(--panel-border);border-radius:10px;
+  background:rgba(14,21,38,.85);color:var(--hub);}
+#title small{color:var(--text-dim);font-weight:400;margin-left:8px;letter-spacing:0;}
+#indSel{font-size:13px;padding:7px 10px;border-radius:8px;font-family:inherit;
+  border:1px solid var(--panel-border);background:rgba(14,21,38,.9);color:var(--text);outline:none;}
+.filters{display:flex;gap:6px;}
+.fbtn{font-size:12px;padding:7px 12px;border-radius:8px;border:1px solid var(--panel-border);
+  background:rgba(14,21,38,.85);color:var(--text-dim);cursor:pointer;font-family:inherit;}
+.fbtn:hover{color:var(--text);border-color:#33456f;}
+.fbtn.on{color:#071018;background:var(--hub);border-color:var(--hub);font-weight:700;}
+#search{font-size:12px;padding:7px 12px;border-radius:8px;width:170px;
+  border:1px solid var(--panel-border);background:rgba(14,21,38,.85);color:var(--text);
+  font-family:inherit;outline:none;}
+#search:focus{border-color:var(--hub);}
+
+#legend{position:absolute;left:16px;bottom:14px;background:rgba(14,21,38,.85);
+  border:1px solid var(--panel-border);border-radius:10px;padding:10px 14px;
+  font-size:11px;color:var(--text-dim);display:flex;flex-direction:column;gap:6px;}
+#legend .row{display:flex;align-items:center;gap:8px;}
+#legend .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+#hint{position:absolute;right:16px;bottom:14px;font-size:11px;color:var(--text-dim);
+  background:rgba(14,21,38,.7);padding:6px 10px;border-radius:8px;border:1px solid var(--panel-border);}
+#updated{position:absolute;right:16px;top:60px;font-size:11px;color:var(--text-dim);}
+
+/* hover tooltip */
+#tip{position:absolute;display:none;pointer-events:none;z-index:20;
+  background:rgba(10,16,32,.95);border:1px solid #2a3855;border-radius:10px;
+  padding:8px 12px;max-width:240px;box-shadow:0 6px 24px rgba(0,0,0,.5);}
+#tip .t-head{display:flex;align-items:center;gap:8px;}
+#tip img{width:26px;height:26px;border-radius:6px;background:#fff;object-fit:contain;flex:0 0 auto;}
+#tip .t-name{font-size:13px;font-weight:700;line-height:1.3;}
+#tip .t-meta{font-size:11px;color:var(--text-dim);margin-top:3px;}
+
+#panel{width:330px;flex:0 0 330px;height:100%;overflow-y:auto;background:var(--panel);
+  border-left:1px solid var(--panel-border);padding:20px 18px;}
+#panel::-webkit-scrollbar{width:8px;}
+#panel::-webkit-scrollbar-thumb{background:#2a3855;border-radius:4px;}
+.p-kicker{font-size:11px;letter-spacing:2px;color:var(--accent);margin-bottom:6px;}
+.p-head{display:flex;align-items:center;gap:10px;}
+.p-logo{width:40px;height:40px;border-radius:9px;background:#fff;object-fit:contain;flex:0 0 auto;}
+.p-name{font-size:21px;font-weight:800;line-height:1.25;}
+.p-sub{font-size:12px;color:var(--text-dim);margin-top:4px;}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.badge{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--panel-border);color:var(--text-dim);}
+.badge.gold{color:#071018;background:var(--tw-gold);border-color:var(--tw-gold);font-weight:700;}
+.p-desc{font-size:13px;line-height:1.75;color:#b9c5dd;margin-top:14px;
+  border-top:1px solid var(--panel-border);padding-top:14px;}
+.p-link{margin-top:10px;font-size:12px;}
+.p-link a{color:var(--accent);text-decoration:none;}
+.p-link a:hover{text-decoration:underline;}
+.rel-head{margin-top:18px;font-size:13px;font-weight:700;color:var(--text);
+  border-top:1px solid var(--panel-border);padding-top:14px;}
+.rel-card{margin-top:10px;background:var(--card);border:1px solid var(--panel-border);
+  border-left:3px solid var(--accent);border-radius:8px;padding:10px 12px;cursor:pointer;
+  display:flex;gap:10px;align-items:center;}
+.rel-card:hover{border-color:#33456f;border-left-color:var(--accent);}
+.rel-card img{width:24px;height:24px;border-radius:5px;background:#fff;object-fit:contain;flex:0 0 auto;}
+.rel-name{font-size:13px;font-weight:700;}
+.rel-label{font-size:11px;color:var(--accent);margin-top:2px;}
+.p-empty{color:var(--text-dim);font-size:13px;line-height:1.8;margin-top:14px;}
+#src{margin-top:22px;font-size:11px;color:var(--text-dim);
+  border-top:1px solid var(--panel-border);padding-top:12px;line-height:1.7;}
+#src a{color:var(--text-dim);}
+
+@media(max-width:820px){
+  body{flex-direction:column;}
+  #panel{width:100%;flex:0 0 42%;border-left:none;border-top:1px solid var(--panel-border);}
+}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="topbar">
+    <div id="title">台灣產業價值鏈<small>關係網路圖</small></div>
+    <select id="indSel"></select>
+    <div class="filters">
+      <button class="fbtn on" data-f="all">全部</button>
+      <button class="fbtn" data-f="tw">僅台灣公司</button>
+      <button class="fbtn" data-f="L0">上游</button>
+      <button class="fbtn" data-f="L1">中游</button>
+      <button class="fbtn" data-f="L2">下游</button>
+    </div>
+    <input id="search" type="text" placeholder="搜尋公司 / 代號，Enter 定位" list="nodelist">
+    <datalist id="nodelist"></datalist>
+  </div>
+  <div id="updated"></div>
+  <div id="legend">
+    <div class="row"><span class="dot" style="background:var(--hub)"></span>產業鏈層級</div>
+    <div class="row"><span class="dot" style="background:var(--cat)"></span>產業環節</div>
+    <div class="row"><span class="dot" style="background:var(--subcat)"></span>細項分類</div>
+    <div class="row"><span class="dot" style="background:var(--tw-gold)"></span>上市　<span class="dot" style="background:var(--tw-otc)"></span>上櫃　<span class="dot" style="background:var(--tw-emg)"></span>興櫃</div>
+    <div class="row"><span class="dot" style="background:var(--foreign)"></span>知名外國企業</div>
+  </div>
+  <div id="hint">拖曳節點｜滾輪縮放｜點擊看關聯｜點空白處取消</div>
+  <div id="tip"></div>
+</div>
+
+<div id="panel"></div>
+
+<script src="data/chains.js"></script>
+<script>
+"use strict";
+/* =====================================================
+   0. Logo 工具：外國企業與台灣公司皆以官網 favicon 顯示
+      （domain 由 build.py 寫入 data/chains.js）
+   ===================================================== */
+const imgCache = {};   // url -> {img, ok:0|1|-1}
+function logoURL(co){ return co.d ? `https://www.google.com/s2/favicons?domain=${co.d}&sz=64` : null; }
+function getImg(url){
+  if(!url) return null;
+  let e = imgCache[url];
+  if(!e){
+    e = imgCache[url] = {img:new Image(), ok:0};
+    e.img.onload = ()=>{ e.ok = (e.img.naturalWidth>4)?1:-1; };  // 過小視為無效
+    e.img.onerror = ()=>{ e.ok = -1; };
+    e.img.src = url;
+  }
+  return e.ok===1 ? e.img : null;
+}
+
+/* =====================================================
+   1. 由 CHAIN_DATA 建圖（多產業）
+   ===================================================== */
+let nodes=[], links=[], byId={}, neighbors={};
+let LAYER_X = {};
+let currentInd = null;
+
+const MARKET_COLOR = {"上市":"#f5c542","上櫃":"#ffa94d","興櫃":"#ff7e67"};
+
+function addNode(n){
+  n.x=(LAYER_X[n.layer]||0)+(Math.random()-.5)*420;
+  n.y=(Math.random()-.5)*640;
+  n.vx=0;n.vy=0;n.fixed=false;
+  nodes.push(n); byId[n.id]=n;
+}
+
+function buildGraph(ind){
+  currentInd = ind;
+  nodes=[];links=[];byId={};
+  const nL = ind.layers.length;
+  LAYER_X = {};
+  ind.layers.forEach((L,i)=>{ LAYER_X["L"+i] = (i-(nL-1)/2)*620; });
+
+  // 層級
+  ind.layers.forEach((L,i)=>addNode({
+    id:"L"+i, name:L.name, kind:"layer", layer:"L"+i,
+    desc:`${ind.name}產業鏈之${L.name}。點擊下方關聯逐層展開。`
+  }));
+  for(let i=0;i<nL-1;i++) links.push({s:"L"+i,t:"L"+(i+1),label:"供應 / 服務"});
+
+  const coMap = {}; // 公司去重：台灣以代號、外國以域名(退而求其次名稱)
+  let gi=0, si=0;
+
+  ind.layers.forEach((L,li)=>{
+    const lid="L"+li;
+    L.segments.forEach(seg=>{
+      const gid="G"+(gi++);
+      addNode({id:gid,name:seg.name,kind:"cat",layer:lid,
+        desc:`「${seg.name}」為${L.name}之產業環節。`});
+      links.push({s:gid,t:lid,label:"產業環節"});
+      seg.subs.forEach(sub=>{
+        let attach=gid, attachName=seg.name;
+        if(sub.name){
+          const sid="S"+(si++);
+          addNode({id:sid,name:sub.name,kind:"sub",layer:lid,
+            desc:`「${sub.name}」為「${seg.name}」之細項分類。`});
+          links.push({s:sid,t:gid,label:"細項"});
+          attach=sid; attachName=sub.name;
+        }
+        sub.companies.forEach(co=>{
+          const key = co.c ? "tw:"+co.c : "f:"+(co.d||co.n);
+          let node = coMap[key];
+          if(!node){
+            node = { id:key, name:co.n, layer:lid, d:co.d||"",
+              kind: co.c ? "tw" : "foreign",
+              code: co.c||null, market: co.m||null, fields:[] };
+            coMap[key]=node; addNode(node);
+          }
+          if(!node.fields.includes(attachName)) node.fields.push(attachName);
+          if(!links.some(l=>l.s===key&&l.t===attach))
+            links.push({s:key,t:attach,label:attachName});
+        });
+      });
+    });
+  });
+  // 公司描述
+  Object.values(coMap).forEach(n=>{
+    n.desc = n.kind==="tw"
+      ? `台灣${n.market}公司（${n.code}），納入領域：${n.fields.join("、")}。`
+      : `知名外國企業，納入領域：${n.fields.join("、")}。`;
+  });
+
+  neighbors={};
+  nodes.forEach(n=>neighbors[n.id]=new Set());
+  links.forEach(l=>{neighbors[l.s].add(l.t);neighbors[l.t].add(l.s);});
+  links.forEach(l=>l.len=restLen(l));
+
+  // datalist
+  const dl=document.getElementById("nodelist"); dl.innerHTML="";
+  nodes.filter(n=>n.kind==="tw"||n.kind==="foreign").forEach(n=>{
+    const o=document.createElement("option");
+    o.value=n.kind==="tw"?`${n.name} ${n.code}`:n.name;
+    dl.appendChild(o);
+  });
+
+  selectedId=null; hoverId=null;
+  cam={x:0,y:0,k: nodes.length>120?0.5:0.62};
+  alpha=1;
+  for(let i=0;i<260;i++) tick();
+  alpha=0.35;
+  renderHome();
+}
+
+/* =====================================================
+   2. 力導向模擬
+   ===================================================== */
+const REPULSE=5200, SPRING=0.035, DAMP=0.86, CENTER=0.012;
+const SPRING_LEN={layerlayer:420,layercat:190,catsub:120,subco:95,catco:110};
+let alpha=1;
+
+function restLen(l){
+  const a=byId[l.s],b=byId[l.t];
+  if(a.kind==="layer"&&b.kind==="layer")return SPRING_LEN.layerlayer;
+  const k=[a.kind,b.kind].sort().join("");
+  if(k.includes("layer"))return SPRING_LEN.layercat;
+  if(k==="catsub")return SPRING_LEN.catsub;
+  if(k.includes("sub"))return SPRING_LEN.subco;
+  return SPRING_LEN.catco;
+}
+function size(n){return n.kind==="layer"?26:n.kind==="cat"?17:n.kind==="sub"?11:n.kind==="tw"?10:9;}
+function mass(n){return size(n)*0.5;}
+
+function tick(){
+  if(alpha<0.003)return;
+  for(let i=0;i<nodes.length;i++){
+    const a=nodes[i];
+    for(let j=i+1;j<nodes.length;j++){
+      const b=nodes[j];
+      let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy;if(d2<1)d2=1;
+      const f=REPULSE/d2,d=Math.sqrt(d2),fx=f*dx/d,fy=f*dy/d;
+      a.vx+=fx/mass(a);a.vy+=fy/mass(a);b.vx-=fx/mass(b);b.vy-=fy/mass(b);
+    }
+  }
+  for(const l of links){
+    const a=byId[l.s],b=byId[l.t];
+    let dx=b.x-a.x,dy=b.y-a.y;
+    const d=Math.max(Math.sqrt(dx*dx+dy*dy),1),f=SPRING*(d-l.len),fx=f*dx/d,fy=f*dy/d;
+    a.vx+=fx/mass(a);a.vy+=fy/mass(a);b.vx-=fx/mass(b);b.vy-=fy/mass(b);
+  }
+  for(const n of nodes){
+    n.vx+=(LAYER_X[n.layer]-n.x)*CENTER/1.4;
+    n.vy+=(0-n.y)*CENTER*0.55;
+    if(n.kind==="layer"){n.vx+=(LAYER_X[n.layer]-n.x)*0.05;n.vy+=(0-n.y)*0.02;}
+  }
+  for(const n of nodes){
+    if(n.fixed){n.vx=0;n.vy=0;continue;}
+    n.vx*=DAMP;n.vy*=DAMP;
+    n.x+=n.vx*alpha*2.2;n.y+=n.vy*alpha*2.2;
+  }
+  alpha*=0.995;
+}
+
+/* =====================================================
+   3. 渲染 + 互動
+   ===================================================== */
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d");
+const tip=document.getElementById("tip");
+let W,H,DPR,cam={x:0,y:0,k:0.62},hoverId=null,selectedId=null,filter="all";
+const stars=Array.from({length:130},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.1+.2,a:Math.random()*.5+.15}));
+
+function resize(){DPR=window.devicePixelRatio||1;W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;}
+window.addEventListener("resize",resize);
+function w2s(x,y){return[(x-cam.x)*cam.k+W/2,(y-cam.y)*cam.k+H/2];}
+function s2w(px,py){return[(px-W/2)/cam.k+cam.x,(py-H/2)/cam.k+cam.y];}
+
+function nodeColor(n){
+  if(n.kind==="layer")return"#5fd4e0";
+  if(n.kind==="cat")return"#9d8cff";
+  if(n.kind==="sub")return"#6f6bc4";
+  if(n.kind==="tw")return MARKET_COLOR[n.market]||"#f5c542";
+  return"#8fa3bf";
+}
+function passFilter(n){
+  if(filter==="all")return true;
+  if(filter==="tw")return n.kind!=="foreign";
+  return n.layer===filter;
+}
+function isDim(n){
+  if(!passFilter(n))return true;
+  if(!selectedId)return false;
+  return n.id!==selectedId&&!neighbors[selectedId].has(n.id);
+}
+
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.clearRect(0,0,W,H);
+  for(const s of stars){ctx.globalAlpha=s.a;ctx.fillStyle="#9db4dd";
+    ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,7);ctx.fill();}
+  ctx.globalAlpha=1;
+
+  for(const l of links){
+    const a=byId[l.s],b=byId[l.t];
+    const dim=isDim(a)||isDim(b);
+    const hot=selectedId&&(l.s===selectedId||l.t===selectedId);
+    const[x1,y1]=w2s(a.x,a.y),[x2,y2]=w2s(b.x,b.y);
+    ctx.strokeStyle=hot?"#5fd4e0":"#233052";
+    ctx.globalAlpha=dim?0.06:(hot?0.95:0.5);
+    ctx.lineWidth=hot?1.6:0.8;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+
+  for(const n of nodes){
+    const[x,y]=w2s(n.x,n.y);
+    if(x<-60||x>W+60||y<-60||y>H+60)continue;
+    const r=size(n)*cam.k*(n.kind==="layer"?1:1.15);
+    const dim=isDim(n),sel=n.id===selectedId,hov=n.id===hoverId;
+    ctx.globalAlpha=dim?0.12:1;
+
+    if(sel||hov){
+      ctx.beginPath();ctx.arc(x,y,r+6,0,7);
+      ctx.strokeStyle=nodeColor(n);ctx.globalAlpha=dim?0.1:0.9;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.globalAlpha=dim?0.12:1;
+    }
+    if(n.kind==="layer"){
+      ctx.beginPath();ctx.arc(x,y,r+9,0,7);
+      ctx.strokeStyle="#5fd4e0";ctx.globalAlpha=dim?0.05:0.28;ctx.lineWidth=1;ctx.stroke();
+      ctx.globalAlpha=dim?0.12:1;
+    }
+
+    // 公司節點：logo 圓形裁切；無 logo 退回色圓+首字
+    const isCo=(n.kind==="tw"||n.kind==="foreign");
+    const img=isCo?getImg(logoURL(n)):null;
+    if(img && r>4){
+      ctx.save();
+      ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.closePath();ctx.clip();
+      ctx.fillStyle="#ffffff";ctx.fillRect(x-r,y-r,r*2,r*2);
+      ctx.drawImage(img,x-r*0.82,y-r*0.82,r*1.64,r*1.64);
+      ctx.restore();
+      ctx.beginPath();ctx.arc(x,y,r,0,7);
+      ctx.strokeStyle=nodeColor(n);ctx.lineWidth=1.6;ctx.stroke();
+    }else{
+      ctx.beginPath();ctx.arc(x,y,r,0,7);
+      ctx.fillStyle=nodeColor(n);ctx.fill();
+      if(n.kind==="layer"||n.kind==="cat"){
+        ctx.fillStyle="#070b18";ctx.beginPath();ctx.arc(x,y,r*0.55,0,7);ctx.fill();
+      }else if(isCo&&r>6){
+        ctx.fillStyle="#071018";
+        ctx.font=`700 ${Math.max(r,8)}px 'Noto Sans TC',sans-serif`;
+        ctx.textAlign="center";ctx.textBaseline="middle";
+        ctx.fillText(n.name[0],x,y+1);
+        ctx.textBaseline="alphabetic";
+      }
+    }
+
+    const showLabel=n.kind==="layer"||n.kind==="cat"||
+      (n.kind==="sub"&&cam.k>0.45)||(n.kind==="tw"&&cam.k>0.5)||
+      sel||hov||(selectedId&&neighbors[selectedId].has(n.id))||
+      (n.kind==="foreign"&&cam.k>0.85);
+    if(showLabel&&!dim){
+      ctx.font=(n.kind==="layer"?`700 ${13*Math.min(cam.k*1.4,1.3)}px`:
+        n.kind==="cat"?`700 ${12*Math.min(cam.k*1.4,1.2)}px`:
+        `${10.5*Math.min(cam.k*1.5,1.15)}px`)+" 'Noto Sans TC','Microsoft JhengHei',sans-serif";
+      ctx.textAlign="center";
+      ctx.fillStyle=n.kind==="tw"?"#ffe9a8":n.kind==="layer"?"#aef0f7":n.kind==="cat"?"#cfc6ff":"#aab8d4";
+      const label=n.kind==="tw"?`${n.name} ${n.code}`:n.name;
+      ctx.fillText(label,x,y+r+13);
+    }
+  }
+  ctx.globalAlpha=1;
+}
+function loop(){tick();draw();requestAnimationFrame(loop);}
+
+/* ---------- tooltip ---------- */
+function showTip(n,px,py){
+  const KT={layer:"產業鏈層級",cat:"產業環節",sub:"細項分類",tw:"台灣掛牌公司",foreign:"知名外國企業"};
+  const url=logoURL(n);
+  tip.innerHTML=`<div class="t-head">
+      ${url?`<img src="${url}" alt="">`:""}
+      <div><div class="t-name">${esc(n.name)}${n.code?` <span style="color:var(--tw-gold)">${n.code}</span>`:""}</div>
+      <div class="t-meta">${n.market?n.market+" · ":""}${KT[n.kind]}</div></div>
+    </div>`;
+  tip.style.display="block";
+  const stage=document.getElementById("stage").getBoundingClientRect();
+  tip.style.left=Math.min(px+16,stage.width-250)+"px";
+  tip.style.top=Math.max(py-10,8)+"px";
+}
+function hideTip(){tip.style.display="none";}
+
+/* ---------- 滑鼠 ---------- */
+let dragNode=null,panning=false,lastX=0,lastY=0,downX=0,downY=0;
+function hit(px,py){
+  const[wx,wy]=s2w(px,py);
+  let best=null,bestD=1e9;
+  for(const n of nodes){
+    if(!passFilter(n))continue;
+    const d=Math.hypot(n.x-wx,n.y-wy),rr=size(n)+10/cam.k;
+    if(d<rr&&d<bestD){best=n;bestD=d;}
+  }
+  return best;
+}
+cv.addEventListener("mousedown",e=>{
+  const n=hit(e.offsetX,e.offsetY);
+  downX=e.offsetX;downY=e.offsetY;
+  if(n){dragNode=n;n.fixed=true;alpha=Math.max(alpha,0.25);}
+  else{panning=true;cv.classList.add("dragging");}
+  lastX=e.offsetX;lastY=e.offsetY;hideTip();
+});
+window.addEventListener("mousemove",e=>{
+  const rect=cv.getBoundingClientRect();
+  const px=e.clientX-rect.left,py=e.clientY-rect.top;
+  if(dragNode){
+    const[wx,wy]=s2w(px,py);dragNode.x=wx;dragNode.y=wy;alpha=Math.max(alpha,0.18);
+  }else if(panning){
+    cam.x-=(px-lastX)/cam.k;cam.y-=(py-lastY)/cam.k;
+  }else{
+    const n=hit(px,py);
+    hoverId=n?n.id:null;
+    cv.style.cursor=n?"pointer":"grab";
+    if(n)showTip(n,px,py);else hideTip();
+  }
+  lastX=px;lastY=py;
+});
+window.addEventListener("mouseup",e=>{
+  const rect=cv.getBoundingClientRect();
+  const px=e.clientX-rect.left,py=e.clientY-rect.top;
+  const moved=Math.hypot(px-downX,py-downY)>5;
+  if(dragNode){dragNode.fixed=false;if(!moved)select(dragNode.id);dragNode=null;}
+  else if(panning&&!moved){select(null);}
+  panning=false;cv.classList.remove("dragging");
+});
+cv.addEventListener("wheel",e=>{
+  e.preventDefault();
+  const f=e.deltaY<0?1.12:0.89;
+  const[wx,wy]=s2w(e.offsetX,e.offsetY);
+  cam.k=Math.min(Math.max(cam.k*f,0.22),3);
+  const[nx,ny]=w2s(wx,wy);
+  cam.x+=(nx-e.offsetX)/cam.k;cam.y+=(ny-e.offsetY)/cam.k;
+},{passive:false});
+cv.addEventListener("touchstart",e=>{
+  const t=e.touches[0],rect=cv.getBoundingClientRect();
+  const px=t.clientX-rect.left,py=t.clientY-rect.top;
+  const n=hit(px,py);
+  downX=px;downY=py;lastX=px;lastY=py;
+  if(n){dragNode=n;n.fixed=true;}else panning=true;
+},{passive:true});
+cv.addEventListener("touchmove",e=>{
+  const t=e.touches[0],rect=cv.getBoundingClientRect();
+  const px=t.clientX-rect.left,py=t.clientY-rect.top;
+  if(dragNode){const[wx,wy]=s2w(px,py);dragNode.x=wx;dragNode.y=wy;alpha=Math.max(alpha,0.18);}
+  else if(panning){cam.x-=(px-lastX)/cam.k;cam.y-=(py-lastY)/cam.k;}
+  lastX=px;lastY=py;
+},{passive:true});
+cv.addEventListener("touchend",()=>{
+  const moved=Math.hypot(lastX-downX,lastY-downY)>8;
+  if(dragNode){dragNode.fixed=false;if(!moved)select(dragNode.id);dragNode=null;}
+  else if(!moved)select(null);
+  panning=false;
+});
+
+/* ---------- 側欄 ---------- */
+const panel=document.getElementById("panel");
+const KIND_TXT={layer:"產業鏈層級",cat:"產業環節",sub:"細項分類",tw:"台灣掛牌公司",foreign:"知名外國企業"};
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function select(id){
+  selectedId=id;
+  if(!id){renderHome();return;}
+  const n=byId[id];
+  const rel=[...neighbors[id]].map(r=>byId[r]).filter(passFilter);
+  const order={layer:0,cat:1,sub:2,tw:3,foreign:4};
+  rel.sort((a,b)=>order[a.kind]-order[b.kind]||a.name.localeCompare(b.name,"zh-Hant"));
+  const url=logoURL(n);
+
+  let html=`<div class="p-kicker">${KIND_TXT[n.kind]}</div>
+    <div class="p-head">${url?`<img class="p-logo" src="${url}" alt="">`:""}
+      <div class="p-name">${esc(n.name)}</div></div>`;
+  if(n.kind==="tw")html+=`<div class="p-sub">股票代號 ${n.code}</div>`;
+  html+=`<div class="badges">`;
+  if(n.kind==="tw")html+=`<span class="badge gold">${n.market}</span>`;
+  if(n.layer!=null&&byId[n.layer])html+=`<span class="badge">${esc(byId[n.layer].name)}</span>`;
+  html+=`</div><div class="p-desc">${esc(n.desc||"")}</div>`;
+  if(n.kind==="tw")
+    html+=`<div class="p-link"><a href="https://ic.tpex.org.tw/company_basic.php?stk_code=${n.code}" target="_blank" rel="noopener">櫃買中心 公司基本資料 ↗</a></div>`;
+  if(n.kind==="foreign"&&n.d)
+    html+=`<div class="p-link"><a href="https://${n.d}" target="_blank" rel="noopener">公司官網 ↗</a></div>`;
+  html+=`<div class="rel-head">關聯（${rel.length}）</div>`;
+  for(const r of rel){
+    const edge=links.find(l=>(l.s===id&&l.t===r.id)||(l.t===id&&l.s===r.id));
+    const rUrl=logoURL(r);
+    html+=`<div class="rel-card" data-id="${esc(r.id)}">
+      ${rUrl?`<img src="${rUrl}" alt="">`:""}
+      <div><div class="rel-name">${esc(r.name)}${r.code?` <span style="color:var(--tw-gold)">${r.code}</span>`:""}</div>
+      <div class="rel-label">${esc(edge&&edge.label?edge.label:KIND_TXT[r.kind])}</div></div>
+    </div>`;
+  }
+  html+=`<div id="src">可驗證來源：<a href="https://ic.tpex.org.tw/introduce.php?ic=${currentInd.ic}" target="_blank" rel="noopener">ic.tpex.org.tw（${esc(currentInd.name)}產業鏈）</a></div>`;
+  panel.innerHTML=html;panel.scrollTop=0;
+  panel.querySelectorAll(".rel-card").forEach(el=>{
+    el.addEventListener("click",()=>{focusNode(el.dataset.id);select(el.dataset.id);});
+  });
+}
+function renderHome(){
+  const tw=nodes.filter(n=>n.kind==="tw").length,f=nodes.filter(n=>n.kind==="foreign").length;
+  panel.innerHTML=`<div class="p-kicker">產業鏈</div>
+  <div class="p-name">${esc(currentInd.name)}</div>
+  <div class="p-sub">資料來源：櫃買中心 產業價值鏈資訊平台</div>
+  <div class="p-desc">本產業鏈共 ${tw} 家台灣掛牌公司、${f} 家知名外國企業。滑鼠移到節點可看 Logo 與名稱，點擊節點可查看定位與所有關聯。</div>
+  <div class="p-empty">上方下拉選單可切換其他產業鏈。</div>
+  <div id="src">可驗證來源：<a href="https://ic.tpex.org.tw/introduce.php?ic=${currentInd.ic}" target="_blank" rel="noopener">ic.tpex.org.tw</a></div>`;
+}
+function focusNode(id){const n=byId[id];cam.x=n.x;cam.y=n.y;cam.k=Math.max(cam.k,0.9);}
+
+/* ---------- 篩選/搜尋/產業切換 ---------- */
+document.querySelectorAll(".fbtn").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll(".fbtn").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");filter=b.dataset.f;
+    if(selectedId&&!passFilter(byId[selectedId]))select(null);
+  });
+});
+document.getElementById("search").addEventListener("keydown",e=>{
+  if(e.key!=="Enter")return;
+  const q=e.target.value.trim().toLowerCase();
+  if(!q)return;
+  const n=nodes.find(x=>x.name.toLowerCase().includes(q)||(x.code&&x.code===q));
+  if(n){focusNode(n.id);select(n.id);}
+});
+const sel=document.getElementById("indSel");
+CHAIN_DATA.industries.forEach((ind,i)=>{
+  const o=document.createElement("option");
+  o.value=i;o.textContent=`${ind.name}（ic=${ind.ic}）`;
+  sel.appendChild(o);
+});
+sel.addEventListener("change",()=>buildGraph(CHAIN_DATA.industries[+sel.value]));
+
+/* ---------- 啟動 ---------- */
+document.getElementById("updated").textContent="資料更新："+CHAIN_DATA.updated;
+resize();
+buildGraph(CHAIN_DATA.industries[0]);
+loop();
+</script>
+</body>
+</html>

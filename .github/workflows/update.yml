@@ -1,0 +1,30 @@
+name: weekly-update
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"   # 每週一 UTC 00:00（台北時間週一 08:00）
+  workflow_dispatch:        # 允許手動觸發
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build chain data (all industries)
+        run: python build.py --all
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "chore: weekly chain data update ($(date -u +%F))"
+          git push
